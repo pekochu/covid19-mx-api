@@ -9,6 +9,7 @@ import net.lingala.zip4j.ZipFile;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.jetbrains.annotations.NotNull;
+import org.joda.time.DateTimeComparator;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -50,10 +51,10 @@ public class CovidSummaryProviderImpl implements CovidSummaryProvider {
 
     private final static Logger LOGGER = LoggerFactory.getLogger(CovidSummaryProvider.class.getCanonicalName());
 
-    private final static String API_URL = "https://covid19.mathdro.id/api/countries/%s/%s";
+    private final static String MATHDROID_API_URL = "https://covid19.mathdro.id/api/countries/%s/%s";
     private final static String SINAVE_URL = "https://covid19.sinave.gob.mx/Log.aspx/Grafica22";
-    private final static String OPEN_DATA_URL = "https://www.gob.mx/salud/documentos/datos-abiertos-152127";
-    private final static String OPEN_DATA_DB = "http://datosabiertos.salud.gob.mx/gobmx/salud/datos_abiertos/datos_abiertos_covid19.zip";
+    private final static String OFFICIAL_MIRROR = "https://www.gob.mx/salud/documentos/datos-abiertos-152127";
+    private final static String UNAM_MIRROR = "https://repounam.org/data/.input";
     private final static String SEMAFORO_CONACYT = "https://datos.covid-19.conacyt.mx/Semaforo/semaforo.php";
 
     // Datos abiertos
@@ -65,73 +66,72 @@ public class CovidSummaryProviderImpl implements CovidSummaryProvider {
 
     @Override
     public void updateData() {
-        JSONObject jsonFlag = null;
-        Path flagFile = Paths.get("./", "covid_update_flag.json");
-
-        Date today = new Date();
-        SimpleDateFormat sdfJson = new SimpleDateFormat("yyyy-MM-dd");
-        Reporte latest = reporteService.lastReport();
-
-        if(!flagFile.toFile().exists()){
-            jsonFlag = new JSONObject();
-            jsonFlag.put("page_last_update", "unknown");
-            try {
-                Files.write(flagFile, jsonFlag.toString().getBytes(), StandardOpenOption.CREATE);
-            } catch (IOException e) {
-                LOGGER.error("Error al crear el archivo bandera. Detalles: {}\n", e.getMessage());
-            }
-            // Execute the method
-            downloadOpenData();
-            // wait for the next execution
-            return;
-        }else{
-            // Execute the method and seek for updates
-            downloadOpenData();
-        }
+        downloadDataCSV();
 
         // Check if the last report has the same date of today's date
-        LOGGER.info("Datos actualizados. Buscando recuperados... \n");
+        LOGGER.info("Data updated. Looking for recoveries... \n");
         getRecoveries();
     }
 
     @Override
-    public void downloadOpenData(){
+    public void downloadDataCSV(){
         Date today = new Date();
+        // SimpleDateFormats for date comparision
         SimpleDateFormat sdf = new SimpleDateFormat("yyMdd");
         sdf.setTimeZone(TimeZone.getTimeZone("America/Mexico_City"));
         SimpleDateFormat sdfJson = new SimpleDateFormat("yyyy-MM-dd");
         sdfJson.setTimeZone(TimeZone.getTimeZone("America/Mexico_City"));
-        String flagFile = "covid_update_flag.json";
-        Path pathFlagFile = Paths.get("./", flagFile);
+        SimpleDateFormat mxSdf = new SimpleDateFormat("d 'de' MMMM 'de' y", new Locale("es", "mx"));
+        sdfJson.setTimeZone(TimeZone.getTimeZone("America/Mexico_City"));
+        // Workplace
         Path zipFile = Paths.get("./downloads/covidmx/", "covid_open_data.zip");
         JSONObject jsonFileFlag;
+        Boolean time2Download = false;
+        String linkDownload;
 
         try{
+            // Get latest update
+            Reporte latest = reporteService.lastReport();
+            Date latestDate = sdfJson.parse(latest.getFecha());
+
             // Read file in order to perform comparision
             StringBuilder jsonStringFlag = new StringBuilder();
 
+            // Select mirror
             LOGGER.info("Checking website for updates");
-            Document page = Jsoup.connect(OPEN_DATA_URL)
+            Document page = Jsoup.connect(OFFICIAL_MIRROR)
                     .userAgent("Mozilla")
                     .ignoreContentType(true).get();
 
-            if(pathFlagFile.toFile().exists()){
-                List<String> flagLines = Files.readAllLines(pathFlagFile);
-                flagLines.forEach(line -> jsonStringFlag.append(line));
-                jsonFileFlag = new JSONObject(jsonStringFlag.toString());
+            if(page.title().equalsIgnoreCase("Attack Detected")){
+                // The page of gobmx has blocked us
+                // Use the UNAM Mirror repostory instead, which is slower
+                page = Jsoup.connect(UNAM_MIRROR)
+                        .userAgent("Mozilla")
+                        .ignoreContentType(true).get();
+                LOGGER.info("Using the UNAM repository...");
+                String md5page = DigestUtils.md5Hex(page.data().getBytes());
+                Element linkZip = page.select("body > table > tbody > tr:nth-child(5) > td:nth-child(2) > a").first();
+                String unamLastUpdate = linkZip.text().replace(".zip", "");
+                Date unamDate = sdfJson.parse(unamLastUpdate);
+                linkDownload = UNAM_MIRROR + "/" + linkZip.attr("href");
+                time2Download = DateTimeComparator.getDateOnlyInstance().compare(latestDate, unamDate) < 0;
             }else{
-                jsonFileFlag = new JSONObject();
-                jsonFileFlag.put("page_last_update", "unknown");
+                // Get ZIP from the official mirror
+                LOGGER.info("Using the official repository");
+                String md5page = DigestUtils.md5Hex(page.data().getBytes());
+                Element divUpdate = page.select("body > main > div > div:nth-child(2) > div:nth-child(3) > div > dl > dd:nth-child(4)").first();
+                Date officialDate = mxSdf.parse(divUpdate.text());
+                Element linkZip = page.select("body > main > div > div:nth-child(2) > div:nth-child(4) > div.article-body.bottom-buffer > table:nth-child(4) > tbody > tr:nth-child(1) > td:nth-child(2) > a").first();
+                String officialLastUpdate = divUpdate.text();
+                time2Download = DateTimeComparator.getDateOnlyInstance().compare(latestDate, officialDate) < 0;
+                linkDownload = linkZip.attr("href");
             }
 
-            String md5page = DigestUtils.md5Hex(page.data().getBytes());
-            Element divUpdate = page.select("body > main > div.container > div.row > div.col-sm-5.col-md-4.col-xs-12.pull-right > div > dl > dd:nth-child(4)").first();
-            String lastOpenDataUpdate = divUpdate.text();
-
             // Trigger download
-            if(!jsonFileFlag.getString("page_last_update").equals(lastOpenDataUpdate)){
+            if(time2Download){
                 LOGGER.info("Updating info. Downloading CSV...");
-                ReadableByteChannel readChannel = Channels.newChannel(new URL(OPEN_DATA_DB).openStream());
+                ReadableByteChannel readChannel = Channels.newChannel(new URL(linkDownload).openStream());
                 FileOutputStream fileOS = new FileOutputStream(zipFile.toFile().getAbsolutePath());
                 FileChannel writeChannel = fileOS.getChannel();
                 writeChannel.transferFrom(readChannel, 0, Long.MAX_VALUE);
@@ -140,13 +140,6 @@ public class CovidSummaryProviderImpl implements CovidSummaryProvider {
                 File zipOpenData = zipFile.toFile();
                 // Calculate MD5
                 String checkSum = DigestUtils.md5Hex(Files.readAllBytes(zipOpenData.toPath()));
-
-                jsonFileFlag.put("last_update", sdfJson.format(today));
-                jsonFileFlag.put("page_last_update", lastOpenDataUpdate);
-                jsonFileFlag.put("page_md5_checksum", md5page);
-                jsonFileFlag.put("file_zip_md5_checksum", checkSum);
-
-                Files.write(pathFlagFile, jsonFileFlag.toString().getBytes(), StandardOpenOption.CREATE);
 
                 // Unzip file
                 new ZipFile(zipFile.toFile()).extractFile(String.format("%sCOVID19MEXICO.csv",
@@ -163,7 +156,7 @@ public class CovidSummaryProviderImpl implements CovidSummaryProvider {
                 LOGGER.info("Everything is up to date");
             }
 
-        } catch (IOException e) {
+        } catch (IOException | ParseException e) {
             LOGGER.error(e.getMessage());
         }
 
@@ -306,23 +299,6 @@ public class CovidSummaryProviderImpl implements CovidSummaryProvider {
 
     @Override
     public void getRecoveries(){
-        JSONObject jsonFlag = null;
-        Path flagFile = Paths.get("./", "covid_update_flag.json");
-        jsonFlag = null;
-
-        if(flagFile.toFile().exists()){
-            StringBuilder tempBuffer = new StringBuilder();
-            List<String> flagLines = null;
-            try {
-                flagLines = Files.readAllLines(flagFile);
-                flagLines.forEach(line -> tempBuffer.append(line));
-                jsonFlag = new JSONObject(tempBuffer.toString());
-            } catch (IOException e) {
-                LOGGER.error("Error al leer archivo bandera. Detalles: {}\n", e.getMessage());
-                return;
-            }
-        }
-
         Collator mCollator = Collator.getInstance();
         mCollator.setStrength(Collator.NO_DECOMPOSITION);
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
@@ -359,9 +335,8 @@ public class CovidSummaryProviderImpl implements CovidSummaryProvider {
 
             // Save reports
             reporteService.updateReport(reportesEstados);
-            Files.write(flagFile, jsonFlag.toString().getBytes(), StandardOpenOption.CREATE);
-        }catch (IOException e){
-            LOGGER.error("Error al actualizar registros. Detalles: {}\n", e.getMessage());
+        }catch (Exception e){
+            LOGGER.error("Error updating records. Details: {}\n", e.getMessage());
         }
     }
 
@@ -369,7 +344,7 @@ public class CovidSummaryProviderImpl implements CovidSummaryProvider {
     public JSONObject getCovidSummary(String country){
         JSONObject news = null;
         try{
-            news = new JSONObject(Jsoup.connect(String.format(API_URL, country, ""))
+            news = new JSONObject(Jsoup.connect(String.format(MATHDROID_API_URL, country, ""))
                     .ignoreContentType(true)
                     .get().body().text());
 
@@ -385,7 +360,7 @@ public class CovidSummaryProviderImpl implements CovidSummaryProvider {
     public JSONArray getCovidDetails(String country){
         JSONArray object = null;
         try{
-            object = new JSONArray(Jsoup.connect(String.format(API_URL, country, "confirmed"))
+            object = new JSONArray(Jsoup.connect(String.format(MATHDROID_API_URL, country, "confirmed"))
                     .ignoreContentType(true)
                     .get().body().text());
 

@@ -14,7 +14,7 @@ public interface CovidSummaryProvider {
      */
     void updateData();
 
-    void downloadOpenData();
+    void downloadDataCSV();
 
     void readCovidCSV();
 
