@@ -14,17 +14,13 @@ public interface CovidSummaryProvider {
      */
     void updateData();
 
-    void downloadDataCSV();
+    void downloadDataCSV(boolean force);
 
     void readCovidCSV();
+
+    void resetDataset();
 
     Map<Integer, String> getSemaphore();
 
     void getRecoveries();
-
-    JSONObject getCovidSummary(String country);
-
-    JSONArray getCovidDetails(String country);
-
-    JSONObject getCovidMX();
 }

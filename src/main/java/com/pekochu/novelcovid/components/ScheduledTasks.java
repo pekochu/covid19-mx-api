@@ -1,6 +1,7 @@
 package com.pekochu.novelcovid.components;
 
 import com.pekochu.novelcovid.service.covid19.BotTwitter;
+import com.pekochu.novelcovid.service.covid19.CovidSummaryProvider;
 import com.pekochu.novelcovid.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,15 +18,17 @@ public class ScheduledTasks {
     @Autowired
     BotTwitter twitter;
 
+    @Autowired
+    CovidSummaryProvider covidSummaryProvider;
+
     private final static Logger LOGGER = LoggerFactory.getLogger(ScheduledTasks.class.getCanonicalName());
     private final static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
-    @Scheduled(cron = "0 0 22 * * ?")
+    @Scheduled(cron = "0 */5 20,21,22,23 * * ?", zone = "America/Mexico_City")
     public void scheduledCovidMexico() {
-        LOGGER.info("Cron Task :: {} - Posting tweet about Covid-19 in Mexico",
+        LOGGER.info("Cron Task :: {} - Executing scheduled tasks...",
                 dateTimeFormatter.format(LocalDateTime.now()));
-
-        Utils.postCovid19image(twitter);
+        covidSummaryProvider.updateData();
     }
 
 }

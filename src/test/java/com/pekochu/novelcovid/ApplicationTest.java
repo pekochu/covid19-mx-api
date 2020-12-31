@@ -27,7 +27,7 @@ public class ApplicationTest {
     @Test
     public void contextLoads() {
         // LOGGER.info("JSON SINAVE: {}", covidProvider.getCovidMX().toString(2));
-        // covidProvider.downloadOpenData();
+        // covidProvider.resetDataset();
         covidProvider.updateData();
         // covidSummaryGraphics.createImageLatest();
     }

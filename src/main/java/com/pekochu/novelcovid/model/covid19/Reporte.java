@@ -18,12 +18,13 @@ public class Reporte {
     public Reporte(){ /* Empty constructor */ }
 
     public Reporte(String fecha, Long sospechosos,
-                   Long confirmados, Long defunciones, Long recuperados, Long activos) {
+                   Long confirmados, Long negativos, Long defunciones, Long recuperados, Long activos) {
         // this.id = id;
         // this.stateId = stateId;
         this.fecha = fecha;
         this.sospechosos = sospechosos;
         this.confirmados = confirmados;
+        this.negativos = negativos;
         this.defunciones = defunciones;
         this.recuperados = recuperados;
         this.activos = activos;
@@ -40,6 +41,9 @@ public class Reporte {
 
     @Column(name = "defunciones")
     private Long defunciones;
+
+    @Column(name = "negativos")
+    private Long negativos;
 
     @Column(name = "recuperados")
     private Long recuperados;
@@ -81,6 +85,14 @@ public class Reporte {
 
     public void setConfirmados(Long confirmados) {
         this.confirmados = confirmados;
+    }
+
+    public Long getNegativos() {
+        return negativos;
+    }
+
+    public void setNegativos(Long negativos) {
+        this.negativos = negativos;
     }
 
     public Long getDefunciones() {
@@ -125,6 +137,7 @@ public class Reporte {
         buffer.append(String.format("Reporte del dia %s ", this.fecha));
         buffer.append(String.format("con estado: %s | ", this.estado.getCve()));
         buffer.append(String.format("Confirmados: %s\t", this.confirmados));
+        buffer.append(String.format("Negativos: %s\t", this.negativos));
         buffer.append(String.format("Recuperados: %s\t", this.recuperados));
         buffer.append(String.format("Defunciones: %s\n", this.defunciones));
 

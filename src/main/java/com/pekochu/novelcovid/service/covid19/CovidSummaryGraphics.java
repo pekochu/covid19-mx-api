@@ -140,6 +140,7 @@ public class CovidSummaryGraphics {
 
             // top states summaries
             int s = 0;
+            String colorString = "";
             for(Reporte estados : reportesEstados){
                 Estado state = estados.getEstado();
                 if(state.getId() == 33) {
@@ -150,11 +151,22 @@ public class CovidSummaryGraphics {
                 // semaforo
                 if(semaforoValores != null){
                     String colorHex = semaforoValores.get(state.getId().intValue());
-                    if(colorHex.equals("#FF7000")) actualSemaforo = semaOrange;
-                    else if(colorHex.equals("#02A247")) actualSemaforo = semaGreen;
-                    else if(colorHex.equals("#FF0000")) actualSemaforo = semaRed;
-                    else if(colorHex.equals("#FFC60F")) actualSemaforo = semaYellow;
-                    else actualSemaforo = semaGray;
+                    if(colorHex.equals("#FF7000")) {
+                        colorString = "Naranja";
+                        actualSemaforo = semaOrange;
+                    } else if(colorHex.equals("#02A247")){
+                        colorString = "Verde";
+                        actualSemaforo = semaGreen;
+                    } else if(colorHex.equals("#FF0000")){
+                        colorString = "Rojo";
+                        actualSemaforo = semaRed;
+                    } else if(colorHex.equals("#FFC60F")){
+                        colorString = "Amarillo";
+                        actualSemaforo = semaYellow;
+                    } else{
+                        colorString = "N/D";
+                        actualSemaforo = semaGray;
+                    }
                 }else{
                     actualSemaforo = semaGray;
                 }
@@ -164,17 +176,18 @@ public class CovidSummaryGraphics {
                 g.setColor(Color.WHITE);
                 g.setFont(selected);
                 printStrigCentered(g, "Semaforo", 180.0f, 40.0f, 1390.0f, 620f+(395*s));
+                printStrigCentered(g, colorString, 180.0f, 40.0f, 1390.0f, 660f+(395*s));
                 // labels
                 selected = openBold.deriveFont(Font.BOLD, 80.0f);
                 g.setFont(selected);
                 g.setColor(Color.WHITE);
                 g.drawString(state.getNombre(),1600, 510+(395*s));
                 // numbers
-                // 337.5
                 long activos = estados.getConfirmados() - (estados.getRecuperados() + estados.getDefunciones());
+                int estadistica = (int)(estados.getEstado().getPoblacion() / estados.getConfirmados());
                 selected = openSemibold.deriveFont(Font.PLAIN, 72.0f);
                 g.setFont(selected);
-                printStrigCentered(g, nf.format(activos),
+                printStrigCentered(g, nf.format(estados.getSospechosos()),
                         336.0f, 65.0f, 1600.0f, 550.0f+(395*s));
 
                 printStrigCentered(g, nf.format(estados.getConfirmados()),
@@ -183,12 +196,12 @@ public class CovidSummaryGraphics {
                 printStrigCentered(g, nf.format(estados.getDefunciones()),
                         336.0f, 65.0f, 2275.0f, 550.0f+(395*s));
 
-                printStrigCentered(g, nf.format(estados.getRecuperados()),
+                printStrigCentered(g, String.format("1 de cada %d", estadistica),
                         336.0f, 65.0f, 2612.5f, 550.0f+(395*s));
 
                 selected = openBold.deriveFont(Font.BOLD, 42.0f);
                 g.setFont(selected);
-                printStrigCentered(g, "Activos",
+                printStrigCentered(g, "Sospechosos",
                         336.0f, 65.0f, 1600.0f, 620.0f+(395*s));
 
                 printStrigCentered(g, "Confirmados",
@@ -197,7 +210,7 @@ public class CovidSummaryGraphics {
                 printStrigCentered(g, "Defunciones",
                         336.0f, 65.0f, 2275.0f, 620.0f+(395*s));
 
-                printStrigCentered(g, "Recuperados",
+                printStrigCentered(g, "Estadística",
                         336.0f, 65.0f, 2612.5f, 620.0f+(395*s));
                 s++;
             }

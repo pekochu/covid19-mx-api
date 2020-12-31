@@ -1,4 +1,4 @@
-package com.pekochu.novelcovid.controller.v1.api;
+package com.pekochu.novelcovid.controller.v1;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pekochu.novelcovid.model.covid19.Estado;
@@ -22,7 +22,7 @@ import java.io.Writer;
 import java.util.List;
 
 @RestController
-@RequestMapping(value = "/api/v1/covid", produces = {MediaType.APPLICATION_JSON_VALUE})
+@RequestMapping(value = "/v1/", produces = {MediaType.APPLICATION_JSON_VALUE})
 @Api(value = "covid")
 public class CovidController {
 

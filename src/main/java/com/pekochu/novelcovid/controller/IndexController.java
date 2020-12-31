@@ -25,7 +25,7 @@ public class IndexController {
         JSONObject index = new JSONObject();
 
         index.put("source", "https://github.com/pekochu/covid19-mx-api");
-        index.put("api", "/api/v1/covid/");
+        index.put("api", "/v1/");
 
         return ResponseEntity.status(HttpStatus.OK.value()).body(index.toString());
     }
